@@ -7,7 +7,7 @@ dotenv.config();
 const connectDatabase = async () => {
   try {
     await mongoose.connect(process.env["MONGODB_URI"]);
-    console.log("Ecom Database Connected Successfully");
+    console.log("Ecommerce Database Connected Successfully");
   } catch (error) {
     console.log("Error While Connecting Database", error);
   }
