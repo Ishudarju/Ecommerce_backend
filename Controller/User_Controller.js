@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { userModel } from "../Model/user_schema.js";
 import * as Address from "./Address_Controller.js";
+import nodemailer from "nodemailer";
 
 // Middleware to authenticate JWT
 export const authMiddleware = (req, res, next) => {
@@ -144,6 +145,108 @@ export const registerUser = async (req, res) => {
       .json({ status: false, message: "Internal server error" });
   }
 };
+
+
+
+//reset Passwords
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    console.log(req.body);
+
+    if (!email) {
+      return res.status(400).json({ status: false, message: "Email is required" });
+    }
+
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    const token = jwt.sign({ email: user.email, id: user._id }, process.env.JWT_SECRET, { expiresIn: "15m" });
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+
+    // Configure email transporter
+    const transporter = nodemailer.createTransport({
+      host: "mail.evvisolutions.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false, // ✅ Ignore SSL certificate issues
+      },
+    });
+    
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: "Password Reset Request",
+      html: `
+        <p>Hello ${user.name},</p>
+        <p>You requested a password reset. Click the button below to reset your password:</p>
+        <p><a href="${resetLink}" style="padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+        <p>If you did not request this, ignore this email.</p>
+        <p>Best Regards, <br> Evvi Solutions Team</p>
+      `,
+    };
+
+    // Send the email
+    await transporter.sendMail(mailOptions);
+
+    return res.json({ status: true, message: "Reset link sent to your email" });
+
+  } catch (error) {
+    console.error("Forgot Password Error:", error); // <-- Log the error
+    return res.status(500).json({ status: false, message: "Internal server error", error: error.message });
+  }
+  
+  
+};
+
+//after reset update the passwords
+
+export const update_password = async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    // Validate input fields
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({ status: false, message: "Both password fields are required" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ status: false, message: "Passwords do not match" });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) {
+      return res.status(400).json({ status: false, message: "Invalid or expired token" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user password
+    await userModel.updateOne({ _id: decoded.id }, { $set: { password: hashedPassword } });
+
+    return res.json({ status: true, message: "Password updated successfully" });
+
+  } catch (error) {
+    console.error("Error updating password:", error);
+    return res.status(500).json({ status: false, message: "Internal server error", error });
+  }
+};
+
+
+
 
 export const getAllUsers = async (req, res) => {
   if (req.user.role == "admin") {

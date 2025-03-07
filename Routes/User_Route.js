@@ -11,6 +11,8 @@ import * as Review from "../Controller/Review_Controller.js";
 const UserRoute = express.Router();
 // user
 UserRoute.post("/login", User.userLogin);
+UserRoute.post("/update-password", User.update_password);
+UserRoute.post("/forgot-password", User.forgotPassword);
 UserRoute.post("/mobileLogin", User.mobileLogin);
 UserRoute.post("/verifyOtp", User.verifyOTPAndLogin);
 UserRoute.post("/register", User.registerUser);
