@@ -210,6 +210,8 @@ export const forgotPassword = async (req, res) => {
   
 };
 
+//correctd
+
 //after reset update the passwords
 
 export const update_password = async (req, res) => {
