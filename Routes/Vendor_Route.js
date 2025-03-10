@@ -12,6 +12,10 @@ VendorRoute.post("/registerVendor", Vendor.registerVendor);
 
 VendorRoute.post("/loginVendor", Vendor.vendorLogin);
 
+VendorRoute.post("/forgot_password", Vendor.vendorForgotPassword);
+
+VendorRoute.post("/update_password", Vendor.vendorUpdatePassword);
+
 VendorRoute.post(
   "/productCreate",
   Vendor.authMiddleware,

@@ -225,6 +225,7 @@ export const vendorForgotPassword = async (req, res) => {
 export const vendorUpdatePassword = async (req, res) => {
   try {
     const { token, newPassword, confirmPassword } = req.body;
+    console.log(req.body);
 
     if (!newPassword || !confirmPassword) {
       return res.status(400).json({ status: false, message: "Both password fields are required" });
@@ -241,7 +242,11 @@ export const vendorUpdatePassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await vendorModel.updateOne({ _id: decoded.id }, { $set: { password: hashedPassword } });
+    await vendorModel.updateOne(
+      { _id: decoded.id },
+      { $set: { hashed_password: hashedPassword } } // Change 'password' to 'hashed_password'
+    );
+    
 
     return res.json({ status: true, message: "Password updated successfully" });
 
@@ -413,44 +418,93 @@ const addressDetails = (addresses) => {
   });
 };
 
+
 export const approveVendor = async (req, res) => {
-  if (req.user.role == "admin") {
+  if (req.user.role === "admin") {
     try {
       const { vendorId, status } = req.body;
       console.log(req.body);
+
       if (!vendorId) {
-        return res
-          .status(401)
-          .json({ status: false, message: "Vendor ID Required" });
+        return res.status(401).json({ status: false, message: "Vendor ID Required" });
       }
 
+      // Find vendor details
       const approvedVendor = await vendorModel.findByIdAndUpdate(
-        vendorId, // This is the ID of the document to update
-        { is_approved: status }, // This is the update object
-        { new: true } // Optional: returns the updated document
+        vendorId,
+        { is_approved: status },
+        { new: true }
       );
 
       if (!approvedVendor) {
-        return res
-          .status(404)
-          .json({ status: false, message: "Vendor not found" });
+        return res.status(404).json({ status: false, message: "Vendor not found" });
       }
 
-      return res
-        .status(200)
-        .json({ status: true, message: "Vendor Approved Successfully" });
-      
+      // If status is approved, send an email
+      if (status === true) {
+        const emailSent = await sendApprovalEmail(approvedVendor.email, approvedVendor.name);
+        if (!emailSent) {
+          console.error("Email sending failed.");
+          return res.status(500).json({ status: false, message: "Vendor approved, but email not sent" });
+        }
+      }
+
+      return res.status(200).json({
+        status: true,
+        message: "Vendor Approved Successfully",
+      });
+
     } catch (err) {
-      return res
-        .status(500)
-        .json({ status: false, message: "Internal Server Error", error: err.message });
+      console.error("Approval Error:", err);
+      return res.status(500).json({
+        status: false,
+        message: "Internal Server Error",
+        error: err.message,
+      });
     }
   } else {
-    return res
-      .status(403)
-      .json({ status: false, message: "Unauthorized access" });
+    return res.status(403).json({ status: false, message: "Unauthorized access" });
   }
 };
+
+// ✅ Updated Email Function
+const sendApprovalEmail = async (vendorEmail, vendorName) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "mail.evvisolutions.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: vendorEmail,
+      subject: "Vendor Registration Approved 🎉",
+      html: `
+        <h2>Hello ${vendorName},</h2>
+        <p>Your vendor registration has been successfully approved by the admin.</p>
+        <p>You can now log in and start using our services.</p>
+        <br>
+        <p>Thank you for choosing us!</p>
+      `,
+    };
+
+    let info = await transporter.sendMail(mailOptions);
+    console.log("Approval email sent:", info.response);
+    return true;
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return false;
+  }
+};
+
 
 
 export const countProductByVendor = async (req, res) => {
