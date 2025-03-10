@@ -39,6 +39,9 @@ export const registerVendor = async (req, res) => {
     const { name, email, companyname, phone_number, password, gstin, address } =
       req.body;
     console.log(req.body);
+    console.log("Received Address Data:", address);
+   
+
     const existingVendor = await vendorModel.findOne({ email });
     if (existingVendor) {
       return res
