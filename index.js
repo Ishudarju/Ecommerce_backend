@@ -11,7 +11,7 @@ import session from "express-session";
 //changes
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const port = 4006;
+const port = 5005;
 const app = express();
 app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
