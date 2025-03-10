@@ -4,6 +4,7 @@ import { userModel } from "../Model/user_schema.js";
 import * as Address from "./Address_Controller.js";
 import nodemailer from "nodemailer";
 
+//sy
 // Middleware to authenticate JWT
 export const authMiddleware = (req, res, next) => {
   const token = req.headers["authorization"];
@@ -210,7 +211,7 @@ export const forgotPassword = async (req, res) => {
   
 };
 
-//correctd
+
 
 //after reset update the passwords
 
