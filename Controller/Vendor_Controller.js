@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { productModel } from "../Model/Product_schema.js";
 import { orderModel } from "../Model/Order_schema.js";
+import nodemailer from "nodemailer";
+
 
 export const authMiddleware = (req, res, next) => {
   const token = req?.headers["authorization"]
@@ -157,6 +159,96 @@ export const vendorLogin = async (req, res) => {
       .json({ status: false, message: "Server error", error: error.message });
   }
 };
+
+
+
+// Forgot Password
+export const vendorForgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ status: false, message: "Email is required" });
+    }
+
+    const vendor = await vendorModel.findOne({ email });
+
+    if (!vendor) {
+      return res.status(404).json({ status: false, message: "Vendor not found" });
+    }
+
+    const token = jwt.sign({ email: vendor.email, id: vendor._id }, process.env.JWT_SECRET, { expiresIn: "15m" });
+
+    const resetLink = `${process.env.FRONTEND_URL}/vendor/reset-password/${token}`;
+
+    // Email configuration
+    const transporter = nodemailer.createTransport({
+      host: "mail.evvisolutions.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: vendor.email,
+      subject: "Vendor Password Reset Request",
+      html: `
+        <p>Hello ${vendor.name},</p>
+        <p>You requested a password reset. Click the button below to reset your password:</p>
+        <p><a href="${resetLink}" style="padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+        <p>If you did not request this, ignore this email.</p>
+        <p>Best Regards, <br> Evvi Solutions Team</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.json({ status: true, message: "Reset link sent to your email" });
+
+  } catch (error) {
+    console.error("Vendor Forgot Password Error:", error);
+    return res.status(500).json({ status: false, message: "Internal server error", error: error.message });
+  }
+};
+
+// Update Password
+export const vendorUpdatePassword = async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({ status: false, message: "Both password fields are required" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ status: false, message: "Passwords do not match" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) {
+      return res.status(400).json({ status: false, message: "Invalid or expired token" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await vendorModel.updateOne({ _id: decoded.id }, { $set: { password: hashedPassword } });
+
+    return res.json({ status: true, message: "Password updated successfully" });
+
+  } catch (error) {
+    console.error("Vendor Password Update Error:", error);
+    return res.status(500).json({ status: false, message: "Internal server error", error });
+  }
+};
+
+
 
 export const getVendorProfile = async (req, res) => {
   if (req.user.role === "vendor") {
