@@ -4,6 +4,35 @@ import { userModel } from "../Model/user_schema.js";
 import * as Address from "./Address_Controller.js";
 import nodemailer from "nodemailer";
 
+
+// Password validation function
+const validatePassword = (password) => {
+  const minLength = 12;
+  const maxLength = 16;
+  const uppercaseRegex = /[A-Z]/;
+  const lowercaseRegex = /[a-z]/;
+  const numberRegex = /[0-9]/;
+  const specialCharRegex = /[@#$%^&*()_+!~`{}[\]:;"'<>,.?/\\|-]/;
+
+  if (password.length < minLength || password.length > maxLength) {
+    return "Password must be between 12 and 16 characters.";
+  }
+  if (!uppercaseRegex.test(password)) {
+    return "Password must contain at least one uppercase letter.";
+  }
+  if (!lowercaseRegex.test(password)) {
+    return "Password must contain at least one lowercase letter.";
+  }
+  if (!numberRegex.test(password)) {
+    return "Password must contain at least one number.";
+  }
+  if (!specialCharRegex.test(password)) {
+    return "Password must contain at least one special character (@, #, $, etc.).";
+  }
+  return null; // No errors
+};
+
+
 //sy
 // Middleware to authenticate JWT
 export const authMiddleware = (req, res, next) => {
@@ -41,7 +70,7 @@ export const authMiddleware = (req, res, next) => {
 // Function to handle user login
 export const userLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body;    
 
     // Check if the user exists
     const user = await userModel.findOne({ email });
@@ -101,6 +130,22 @@ export const registerUser = async (req, res) => {
         message: "Name, email, and password are required",
       });
     }
+
+      // Validate phone number format (10 digits only, no spaces/special characters)
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(phone_number)) {
+        return res.status(400).json({
+          status: false,
+          message: "Phone number must be exactly 10 digits (no spaces or special characters).",
+        });
+      }
+
+        // Validate password format
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+          return res.status(400).json({ status: false, message: passwordError });
+        }
+    
 
     // Check if email is already in use
     const existingUser = await userModel.findOne({ email });
@@ -227,6 +272,13 @@ export const update_password = async (req, res) => {
     if (newPassword !== confirmPassword) {
       return res.status(400).json({ status: false, message: "Passwords do not match" });
     }
+
+       // Password Validation
+       const passwordError = validatePassword(newPassword);
+       if (passwordError) {
+         return res.status(400).json({ status: false, message: passwordError });
+       }
+   
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

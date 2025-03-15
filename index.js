@@ -42,7 +42,13 @@ app.use("/admin", AdminRoute);
 app.use("/vendor", VendorRoute);
 app.use("/", UserRoute);
 
+// connectDatabase();
+// app.listen(port, () => {
+//   console.log(`Backend Server is Running ${port}`);
+// });
+
+
 connectDatabase();
-app.listen(port, () => {
+app.listen(port,'0.0.0.0',() => {
   console.log(`Backend Server is Running ${port}`);
 });

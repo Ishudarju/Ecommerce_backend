@@ -34,58 +34,145 @@ export const authMiddleware = (req, res, next) => {
     next();
   });
 };
+// Password validation function
+const validatePassword = (password) => {
+  const minLength = 12;
+  const maxLength = 16;
+  const uppercaseRegex = /[A-Z]/;
+  const lowercaseRegex = /[a-z]/;
+  const numberRegex = /[0-9]/;
+  const specialCharRegex = /[@#$%^&*()_+!~`{}[\]:;"'<>,.?/\\|-]/;
+
+  if (password.length < minLength || password.length > maxLength) {
+    return "Password must be between 12 and 16 characters.";
+  }
+  if (!uppercaseRegex.test(password)) {
+    return "Password must contain at least one uppercase letter.";
+  }
+  if (!lowercaseRegex.test(password)) {
+    return "Password must contain at least one lowercase letter.";
+  }
+  if (!numberRegex.test(password)) {
+    return "Password must contain at least one number.";
+  }
+  if (!specialCharRegex.test(password)) {
+    return "Password must contain at least one special character (@, #, $, etc.).";
+  }
+  return null; // No errors
+};
+
 export const registerVendor = async (req, res) => {
   try {
-    const { name, email, companyname, phone_number, password, gstin, address } =
-      req.body;
-    console.log(req.body);
-    console.log("Received Address Data:", address);
-   
+    const { name, email, companyname, phone_number, password, gstin, address } = req.body;
+
+    if (!name || !email || !companyname || !phone_number || !password || !address) {
+      return res.status(400).json({ status: false, message: "All fields are required." });
+    }
+
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phone_number)) {
+      return res.status(400).json({ status: false, message: "Phone number must be exactly 10 digits." });
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ status: false, message: "Invalid email format." });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ status: false, message: passwordError });
+    }
 
     const existingVendor = await vendorModel.findOne({ email });
     if (existingVendor) {
-      return res
-        .status(400)
-        .json({ message: "Vendor with this email already exists" });
+      return res.status(400).json({ status: false, message: "Vendor with this email already exists." });
     }
 
-    const hashed_password = await bcrypt.hash(password, 10);
-    // const bank_account = vendorBankDetails(bankDetails);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const vendor_address = addressDetails(address);
-    // console.log(bank_account);
+
     const newVendor = new vendorModel({
       name,
       email,
       company_name: companyname,
       phone_number,
-      hashed_password,
-      gstin: gstin ? gstin : "",
-      address: vendor_address, // Attach bank details separately
+      hashed_password: hashedPassword,
+      gstin: gstin || "",
+      address: vendor_address,
     });
+
     await newVendor.save();
 
-    return res.status(201).json({
-      status: true,
-      message: "Vendor registered successfully Wait for Admin to Verify",
-      vendor: {
-        id: newVendor?._id,
-        name: newVendor?.name,
-        email: newVendor?.email,
-        company_name: newVendor?.company_name,
-        phone_number: newVendor?.phone_number,
-        address: newVendor?.address,
-        gstin: newVendor?.gstin,
-      },
-    });
+    return res.status(201).json({ status: true, message: "Vendor registered successfully." });
   } catch (error) {
-    console.log(error); // Log the error for debugging
-    res.status(500).json({
-      status: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
+    return res.status(500).json({ status: false, message: "Internal Server Error", error: error.message });
   }
 };
+
+
+// export const registerVendor = async (req, res) => {
+//   try {
+//     const { name, email, companyname, phone_number, password, gstin, address } =
+//       req.body;
+//     console.log(req.body);
+//     console.log("Received Address Data:", address);
+    
+//       // Validate phone number format (10 digits only, no spaces/special characters)
+//       const phoneRegex = /^[0-9]{10}$/;
+//       if (!phoneRegex.test(phone_number)) {
+//         return res.status(400).json({
+//           status: false,
+//           message: "Phone number must be exactly 10 digits (no spaces or special characters).",
+//         });
+//       }
+
+       
+
+//     const existingVendor = await vendorModel.findOne({ email });
+//     if (existingVendor) {
+//       return res
+//         .status(400)
+//         .json({ message: "Vendor with this email already exists" });
+//     }
+
+//     const hashed_password = await bcrypt.hash(password, 10);
+//     // const bank_account = vendorBankDetails(bankDetails);
+//     const vendor_address = addressDetails(address);
+//     // console.log(bank_account);
+//     const newVendor = new vendorModel({
+//       name,
+//       email,
+//       company_name: companyname,
+//       phone_number,
+//       hashed_password,
+//       gstin: gstin ? gstin : "",
+//       address: vendor_address, // Attach bank details separately
+//     });
+//     await newVendor.save();
+
+//     return res.status(201).json({
+//       status: true,
+//       message: "Vendor registered successfully Wait for Admin to Verify",
+//       vendor: {
+//         id: newVendor?._id,
+//         name: newVendor?.name,
+//         email: newVendor?.email,
+//         company_name: newVendor?.company_name,
+//         phone_number: newVendor?.phone_number,
+//         address: newVendor?.address,
+//         gstin: newVendor?.gstin,
+//       },
+//     });
+//   } catch (error) {
+//     console.log(error); // Log the error for debugging
+//     res.status(500).json({
+//       status: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
 
 export const vendorLogin = async (req, res) => {
   try {
@@ -233,6 +320,11 @@ export const vendorUpdatePassword = async (req, res) => {
 
     if (newPassword !== confirmPassword) {
       return res.status(400).json({ status: false, message: "Passwords do not match" });
+    }
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ status: false, message: passwordError });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
